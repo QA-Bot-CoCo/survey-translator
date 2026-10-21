@@ -1,0 +1,15 @@
+Translate the name of a promotional event such as a sale or Challenge into Hungarian.
+Example:  
+"Bonus Sparkles Sale!" → "Bónusz Csillogás Vásár"  
+"Slot Builder Challenge" → "Nyerőgép Készítő Kihívás"  
+
+Names of the month are to be fully written out instead of using numbers.  
+If space is limited, use an abbreviated version.  
+Example:  
+"On 09.01/21.01" -> " Január 9-én/Január 21-én"
+
+Dates are given in DD.MM format and should include the correct suffix.  
+Ensure date suffixes are never missing.  
+Example:  
+"A winter wonder: up to +400%/+400% + Keys on 06.12/04.01." →  
+"Téli csoda: Akár +400%/+400% + kulcsok december 6-án/január 4-én."

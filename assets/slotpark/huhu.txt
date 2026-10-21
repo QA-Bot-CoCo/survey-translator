@@ -1,0 +1,2 @@
+
+DO translate Sale names, and DO use the full (or abbreviated) name for the month instead of numbers.

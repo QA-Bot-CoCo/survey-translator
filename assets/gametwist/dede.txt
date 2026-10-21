@@ -1,0 +1,1 @@
+Never translate event titles such as challenge names or sale names.

@@ -1,0 +1,6 @@
+Never translate event titles such as challenge names or sale names.
+Use correct German grammar:
+- "Slotbattle" → "die Slotbattle" (feminine)
+- "Spin-Off" → "das Spin-Off" (neutral)
+- "Slot Escape" → "die Slot Escape" (feminine)
+- "Arcade Room" → "der Arcade Room" (masculine)

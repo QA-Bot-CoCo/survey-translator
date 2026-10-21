@@ -1,0 +1,9 @@
+.git
+.venv
+.github
+tests
+tools
+__pycache__
+.env
+.env.*
+*.xlsx

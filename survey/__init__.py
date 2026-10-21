@@ -1,0 +1,1 @@
+"""Survey translation application."""

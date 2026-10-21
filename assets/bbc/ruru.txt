@@ -1,0 +1,5 @@
+Translate the name of a promotional event such as a sale or Challenge into RU
+Examples:
+Bonus Sparkles Sale!  -> Акция Bonus Sparkles!
+Slot Builder Challenge -> Челлендж Slot Builder
+DO use the full (or abbreviated) name for the month instead of numbers.

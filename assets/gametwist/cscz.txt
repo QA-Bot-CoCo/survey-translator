@@ -1,0 +1,4 @@
+Disregard the instruction about informal language, and use the formal form (equivalent of German "Sie") when addressing the player.
+Do not translate the name of a promotional event such as a sale or Challenge.
+Example:  
+"Mermaid's Treasure Challenge" -> "výzvě Mermaid’s Treasure"

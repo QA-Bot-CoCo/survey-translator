@@ -1,0 +1,3 @@
+Do not translate the name of a promotional event such as a sale or Challenge.
+Example:  
+"Bestiary Battle Challenge" -> "défi Bestiary Battle"

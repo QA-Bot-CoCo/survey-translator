@@ -1,0 +1,64 @@
+{
+  "gaminator": {
+    "name": "Gaminator",
+    "token": "_GM_",
+    "source": "enUS",
+    "targets": [
+      "deDE"
+    ]
+  },
+  "gametwist": {
+    "name": "GameTwist",
+    "token": "_GT_",
+    "source": "enGB",
+    "targets": [
+      "deDE",
+      "csCZ",
+      "frFR",
+      "huHU",
+      "itIT",
+      "ruRU",
+      "esES"
+    ]
+  },
+  "slotpark": {
+    "name": "Slotpark",
+    "token": "_SP_",
+    "source": "enGB",
+    "targets": [
+      "deDE",
+      "itIT",
+      "frFR",
+      "esES",
+      "huHU",
+      "roRO"
+    ]
+  },
+  "dcs": {
+    "name": "DCS",
+    "token": "_DCS_",
+    "source": "enUS",
+    "targets": [
+      "csCZ",
+      "frFR",
+      "huHU",
+      "itIT",
+      "esES",
+      "deDE",
+      "ruRU"
+    ]
+  },
+  "bbc": {
+    "name": "BBC",
+    "token": "_BBC_",
+    "source": "enGB",
+    "targets": [
+      "csCZ",
+      "frFR",
+      "huHU",
+      "itIT",
+      "esES",
+      "deDE"
+    ]
+  }
+}
