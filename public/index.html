@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Survey translations</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Survey translations</h1>
+    <p>Translate a workbook and download one XLSX per language in a ZIP.</p>
+    <noscript>Enable JavaScript to upload glossaries and translate workbooks.</noscript>
+    <p id="error" role="alert" hidden></p>
+    <form id="survey-form">
+      <fieldset id="settings" disabled>
+        <legend>Survey</legend>
+        <label for="brand">Brand</label>
+        <select id="brand" name="brand" required></select>
+
+        <label for="glossary">Update glossary CSV <span>(optional)</span></label>
+        <input id="glossary" type="file" accept=".csv,text/csv" aria-describedby="glossary-help glossary-status">
+        <p id="glossary-help" class="hint"></p>
+        <p id="glossary-status" class="hint" aria-live="polite"></p>
+        <button id="reset-glossary" type="button">Use bundled glossary</button>
+
+        <label for="file">Survey workbook</label>
+        <input id="file" name="file" type="file" accept=".xlsx" required aria-describedby="file-help">
+        <p id="file-help" class="hint">XLSX, up to 2 MiB. Include Content and Messages headers in the first row of their sheets.</p>
+
+        <fieldset class="languages">
+          <legend>Translate into</legend>
+          <div id="targets"></div>
+        </fieldset>
+      </fieldset>
+      <div class="actions">
+        <button id="start" type="submit" disabled>Translate</button>
+        <button id="pause" type="button" hidden>Pause after this batch</button>
+        <button id="new-survey" type="button" hidden>New survey</button>
+      </div>
+    </form>
+    <section id="progress-section" aria-label="Translation progress" hidden>
+      <p id="status" role="status"></p>
+      <progress id="progress" max="1" value="0" aria-label="Translation progress"></progress>
+      <div class="actions"><button id="download" type="button" hidden>Download ZIP</button></div>
+    </section>
+    <p class="hint footer">Glossary updates are saved per brand in this browser. Keep this tab open until you download; reloading clears translation progress.</p>
+  </main>
+</body>
+</html>

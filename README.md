@@ -1,215 +1,126 @@
-# Survey Studio
+# Survey translations
 
-A separate Vercel-ready survey translation application. This repository has a
-new Git history and copies only the five brands' translation configuration,
-prompts and glossaries from gparse. It does not import or modify the original
-application and contains no old credentials, uploaded workbooks or OAuth tokens.
+A plain static page with four small, stateless Python serverless functions.
+Choose a brand, optionally replace its glossary CSV, upload an XLSX survey,
+select languages and download all translated workbooks in one ZIP.
 
-## What it does
+## How it works
 
-- Sign in through a single Microsoft Entra tenant, restricted to approved user
-  object IDs.
-- Upload one XLSX workbook and choose a brand and enabled target languages.
-- Translate both Content and Messages columns, across their respective sheets.
-- Download one workbook per language, preserving source cells, sheets and cell
-  formatting supported by openpyxl.
-- Pause between batches and resume in the same browser tab within one hour.
-- Delete a job immediately, or let its encrypted data expire automatically.
+- `public/` contains HTML, CSS and vanilla JavaScript. There is no frontend build.
+- Each brand's uploaded glossary CSV is validated, then saved in browser
+  `localStorage`. Uploading another CSV replaces that brand's override.
+  **Use bundled glossary** removes the override.
+- The original workbook and translation progress stay in the open page's memory.
+  Pause/resume works in that tab. Reloading or closing the page clears the job,
+  while glossary updates remain.
+- Functions process requests without Redis, a database, accounts or server-side
+  job storage. The OpenAI API key is held only on the server.
+- One XLSX is generated per language, then all files are returned in a ZIP.
+  Content and Messages are translated across their respective sheets; source
+  cells and openpyxl-supported formatting are preserved.
 
-The app includes Gaminator, GameTwist, Slotpark, DCS and BBC. Filename tokens are
-no longer needed: brand selection is explicit. There are no Jira, Google Sheets,
-DOCX, Windows Explorer or network-share operations.
+The included brands are Gaminator, GameTwist, Slotpark, DCS and BBC. Enabled
+languages are defined in `public/brands.json`; prompts and bundled glossaries
+remain in `assets/<brand>/`.
 
-## Architecture
+## Glossary CSV
 
-The UI and Python API run as a Flask Vercel Function. The browser requests one
-bounded translation batch at a time. Every batch is authenticated, authorized,
-CSRF checked and charged against distributed quotas before calling OpenAI.
-Completed batches are saved to Redis, so requests do not depend on process-local
-state or Vercel's temporary filesystem. The browser must remain open for progress;
-this is not an unattended background worker.
+Use UTF-8 CSV with semicolon, comma or tab separators. Headers are language
+codes matching the brand, for example:
 
-A dedicated Upstash Redis database stores each uploaded workbook, extracted text
-and translated text as a Fernet-encrypted job with a one-hour TTL. Only the app
-has the encryption key. Redis key names contain user object IDs and opaque job
-IDs, not document filenames. Browser session storage contains only the job ID.
-Downloads are generated in memory behind owner authorization. No public blob URLs
-are created. Redis backups and provider retention policies require separate
-administrative review; expiration is not a promise about third-party backups.
+```csv
+enUS;deDE
+Free spins;Freispiele
+Coins;Coins
+```
 
-This intentionally bounded first version uses encrypted Redis storage instead of
-adding a separate object-storage service. For substantially larger workbooks,
-move file payloads to private object storage and retain job metadata in Redis.
+The source header is `enUS` for Gaminator/DCS and `enGB` for the other brands.
+Include at least one enabled target language. A custom CSV replaces the entire
+bundled glossary for that brand. Targets absent from the CSV translate with the
+brand prompt and no glossary terms. Quoted fields, line breaks and a UTF-8 BOM
+are supported. Limits: 256 KiB, 5,000 rows, 2,000 characters per term.
 
-## Deployment
+Glossaries are local to this browser and site origin; they are not synced to
+other users or devices. Clearing site data removes them. CSV validation and
+translation send the selected CSV to the server; translation includes its
+relevant terms in the OpenAI request. No glossary override is persisted by the
+server.
 
-1. Create a **private** GitHub repository and push this repository's new history.
-   Brand prompts and glossaries are business content; do not publish them in a
-   public repository. Never fork or copy the original repository's Git history.
-2. Import the repository into a new Vercel project. The Flask framework and
-   `app.py` entrypoint are configured in `vercel.json`; Python 3.12 is selected in
-   `.python-version`. Choose an approved deployment region and enable the plan's
-   available deployment protection. Do not expose production secrets to untrusted
-   pull-request previews.
-3. Create a dedicated private Upstash Redis database in an approved region.
-   Use its HTTPS REST URL and read/write REST token. Ensure the plan supports
-   commands/payloads up to **8 MiB**. Job encryption and base64 increase the size
-   of a 2 MiB workbook. Do not use a read-only token.
-4. Register a **single-tenant Web application** in Microsoft Entra ID. Set the
-   redirect URI to `https://YOUR-APP/auth/callback`. Use the authorization-code
-   flow; do not enable implicit access-token or ID-token issuance. The app
-   requests only `openid profile`, with PKCE and nonce/state validation.
-5. In Entra Enterprise applications, enable **Assignment required**, assign the
-   approved users, and apply your organization's MFA/Conditional Access policy.
-   Put those users' tenant object IDs in `ALLOWED_USER_IDS`. Email suffixes are
-   not used as an authorization boundary.
-6. Add the variables listed in `.env.example` to Vercel's protected environment
-   settings. `APP_ORIGIN` must exactly match the canonical HTTPS origin. Requests
-   to other deployment hostnames are intentionally rejected. Use separate
-   credentials, Redis databases and origins for preview/staging deployments.
-7. Generate a fresh 64-character-or-longer session secret and a Fernet data key:
+## Serverless endpoints
 
-   ```powershell
-   python -c "import secrets; print(secrets.token_hex(32))"
-   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-   ```
+| POST endpoint | Input | Output |
+| --- | --- | --- |
+| `/api/glossary` | Brand and CSV as JSON | Validated row count and languages |
+| `/api/prepare` | Workbook, brand and targets as multipart | Bounded text batches |
+| `/api/translate` | One batch, brand, target and optional CSV as JSON | Translations by cell ID |
+| `/api/zip` | Original workbook, brand, targets and translations as multipart | ZIP of translated XLSX files |
 
-   Enter these directly into the environment settings. Do not commit them. Use a
-   new project-scoped OpenAI API key with appropriate project access and usage
-   controls. Do not reuse the old repository's exposed OAuth credentials.
-8. Deploy and perform the live acceptance checks below before inviting users.
+Each file in `api/` is a separate Vercel Function. Shared request validation and
+workbook code live in `survey/`. Translation runs sequentially in batches of up
+to 12 cells / 6,000 characters. A failed batch can be retried without discarding
+completed batches; an ambiguous network failure can repeat a provider charge.
+ZIP download retries do not translate again.
 
-Missing configuration causes startup to fail. There is no anonymous mode, local
-authentication bypass, in-memory production store or fallback credential.
+## Deploy on Vercel
 
-## Limits and retention
+1. Import this repository into a Vercel project. Use the **Other** framework
+   preset, no build command, and `public` as the output directory.
+   `vercel.json` configures this and the four functions.
+2. Set `OPENAI_API_KEY` in the project's server environment. Optionally set
+   `OPENAI_MODEL` (default: `gpt-6-luna`). These are the only translation settings.
+3. Use Vercel deployment protection for team access and configure provider
+   spending limits. This version has no application login or distributed quotas;
+   anyone with deployment access can call its translation function.
+4. Deploy and verify one real translation and ZIP download.
 
-| Limit | Default |
-| --- | --- |
-| Upload | 2 MiB, one XLSX |
-| Download | 4 MiB per language |
-| Archive | 200 entries, 20 MiB uncompressed, compression ratio <= 200 |
-| Worksheet dimensions | 20 sheets, 5,000 rows, 100 columns, 80,000 bounding cells total |
-| Translated input | 2,000 cells, 100,000 characters, 2,000 characters per cell |
-| Translation batch | 12 cells / 6,000 input characters |
-| Model output | 12,000 completion tokens per batch |
-| Session / job lifetime | One hour, fixed expiration |
-| Encrypted job storage | Below 8 MiB, including all target languages |
-| Jobs per UTC day | 10 per user, 100 total |
-| API batches per UTC day | 200 per user, 1,000 total |
+`APP_ORIGIN` is optional. Set it only to restrict requests to one canonical
+origin; leaving it unset allows each preview deployment to use its own origin.
+Requests must carry the page's Origin and custom request header. This check
+prevents cross-origin browser requests; it does not authenticate callers.
 
-The four daily quotas are configurable. Both successful and failed attempts
-consume quota. A maximum-sized survey across many languages can exceed the daily
-batch quota or one-hour retention; split such surveys before uploading. Quotas
-are request ceilings, not exact monetary budgets. Also configure OpenAI and
-hosting-provider cost controls.
-
-Ordinary duplicate completed-step requests return the stored result without a
-second API call. Locks prevent concurrent processing of a job. If a provider
-request succeeds but storage fails, resuming can repeat that API charge; exactly
-once billing cannot be guaranteed across those services. Reload after an
-ambiguous response to retrieve the saved cursor. Closing the browser pauses
-progress; it does not delete the job. Deleting during an in-flight batch cannot
-restore the deleted job, although the already-started API call may still finish.
-
-## Workbook and security behavior
+The static page loads without an API key. Translation reports a configuration
+error until the server key is set. API data is sent with no-store response
+headers. Source workbooks are limited to 2 MiB, translation JSON to 2 MiB,
+the complete request to 4 MiB and the ZIP response to 4 MiB. For larger output,
+translate fewer languages or split the input workbook.
 
 Source formulas, external links, embedded objects, macros and data connections
-are rejected. Remove them before uploading. ZIP paths, XML entities, compression
-ratios and actual cell coordinates are validated before workbook loading.
-Model-produced strings beginning with `=` are stored as text, never formulas.
-Specialist Excel features not supported by openpyxl are not guaranteed to survive
-a round trip. Keep the original workbook and review the output.
+are rejected. Translated strings starting with `=` are stored as text.
+Specialist Excel features unsupported by openpyxl may not survive a round trip.
 
-All job operations check ownership. Session cookies are Secure, HttpOnly and
-SameSite=Lax, with an absolute one-hour application session. Logout clears the
-browser cookie; a previously stolen copy remains usable until expiry unless
-the user is removed from the allowlist or SESSION_SECRET is rotated. Microsoft
-tokens are not persisted. Authentication uses validated tenant/object IDs, not
-request-supplied identities. Apply infrastructure rate limits to sign-in routes.
+## Local development
 
-Mutations require a session-bound CSRF token and exact Origin. Host validation,
-CSP, framing protection and no-store responses are applied. Secrets stay server
-side. Uploaded filenames are sanitized metadata, never filesystem paths. Survey
-text is sent only to the fixed OpenAI API endpoint; the request sets `store=false`.
-That flag does not override OpenAI's account-level data-retention policies. Obtain
-organizational approval for this data flow and the hosting/storage regions.
-
-The application does not provide an antivirus guarantee or a security
-certification. Keep dependencies patched and perform a deployment-specific
-security review before production use.
-
-## Local verification
-
-Use a current security-patched Python. The deployment targets Python 3.12; the
-application is also testable on Python 3.11. Tests use synthetic in-memory
-workbooks and fake external services, without credentials or paid API calls.
+Use Python 3.12 (Python 3.11 also works for local tests) and Node 22+ for the
+JavaScript tests.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip check
+# Set OPENAI_API_KEY in your shell when testing real translations.
+.\.venv\Scripts\python.exe -m flask --app dev run --host 127.0.0.1
+```
+
+Open http://127.0.0.1:5000. The development server serves the same static files
+and API routes. Environment files are not loaded automatically.
+
+```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m pip check
+node --check public/app.js
+node --test tests/browser-state.test.mjs
 python tools/audit_dependencies.py
-node --check static/app.js
 ```
 
-The hash lock requires wheels and pins the complete runtime dependency graph.
-CI repeats tests and the live OSV audit on pushes, pull requests and weekly.
-An empty advisory result is a database snapshot, not proof of absence of bugs.
+Tests use synthetic workbooks and a fake translator, with no paid API calls.
+CI runs the Python and JavaScript checks plus a dependency advisory audit.
+The runtime dependencies retain pinned wheel hashes. To update them, resolve
+`requirements.in` to a pip report and run `tools/lock_dependencies.py`.
 
-Verification recorded on 2026-10-21: all 51 automated tests passed locally on
-Python 3.11, dependency consistency and JavaScript syntax checks passed, and OSV
-reported no known advisories for the 20 locked runtime dependencies. Linux
-Python 3.12 wheel/hash resolution also passed; execution on that runtime remains
-part of CI and deployment verification. Desktop and mobile browser checks passed
-for upload, translation, download, reload/resume and deletion using synthetic
-workbooks and fake external services. Live Microsoft, OpenAI and Redis integration
-has not yet been verified.
+Verified locally: 38 Python tests, four JavaScript tests, desktop/mobile browser
+flows (CSV persistence, reset, failure recovery and ZIP download), and an advisory
+audit of all 15 runtime dependencies. Live OpenAI calls and Vercel deployment
+have not been verified.
 
-For actual local sign-in, configure the environment variables in your shell, use
-`APP_ORIGIN=https://localhost:5000`, register that callback in a separate Entra
-development application, and run:
-
-```powershell
-.\.venv\Scripts\python.exe -m flask --app app run --host 127.0.0.1 --cert adhoc
-```
-
-Keep debug mode disabled. Environment files are ignored, but the app deliberately
-does not load `.env` automatically. The browser needs to accept the local
-development certificate; production must use valid HTTPS.
-
-## Dependency updates
-
-Update `requirements.in`, resolve to a temporary report, then regenerate the hash
-lock. The lock generator rejects packages with OSV findings and includes only
-non-yanked wheel hashes from PyPI. Review dependency changes and rerun tests.
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$env:TEMP\survey-resolve.json" -r requirements.in
-python tools/lock_dependencies.py "$env:TEMP\survey-resolve.json"
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-Do not manually remove advisory checks to force an upgrade. Dependabot proposals
-may need lock regeneration before they can be installed with hashes.
-
-## Live acceptance checks still required
-
-- Microsoft login succeeds for an assigned, allowlisted user and fails for a
-  different tenant or unapproved user; MFA follows the tenant policy.
-- A small approved survey translates through the configured OpenAI model/key.
-- An approved second user cannot read, download, advance or delete the first
-  user's job.
-- Redis quotas and locks work across simultaneous Vercel instances; verify the
-  provider command-size limit and TTL using non-sensitive synthetic files.
-- Pausing/resuming, downloads, immediate deletion and one-hour expiry work on the
-  deployed origin. Review provider logs for accidental sensitive data.
-
-## References
-
-- [Flask on Vercel](https://vercel.com/docs/frameworks/backend/flask)
-- [Vercel function limits](https://vercel.com/docs/functions/limitations)
-- [Microsoft claim validation](https://learn.microsoft.com/en-us/entra/identity-platform/claims-validation)
-- [Upstash Redis REST API](https://upstash.com/docs/redis/features/restapi)
-- [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat)
+Deployment routing follows Vercel's
+[static project configuration](https://vercel.com/docs/project-configuration/vercel-json)
+and [Python file-based functions](https://vercel.com/docs/functions/runtimes/python/api-directory).
